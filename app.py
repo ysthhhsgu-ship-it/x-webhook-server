@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import tweepy
 import os
+import traceback
 
 app = Flask(__name__)
 
@@ -9,7 +10,7 @@ def receive():
     try:
         data = request.json
         accounts = data.get("accounts", [])
-        
+
         results = []
 
         for acc in accounts:
@@ -25,20 +26,23 @@ def receive():
             )
             api = tweepy.API(auth)
 
-            tweet = api.update_status(text)
-            results.append({"id": tweet.id})
+            try:
+                tweet = api.update_status(text)
+                results.append({"id": tweet.id})
+            except Exception as e:
+                print("Twitter API ERROR:", e)
+                print(traceback.format_exc())
+                results.append({"error": str(e)})
+                # 投稿失敗しても続ける
 
         return jsonify({"status": "ok", "results": results})
 
     except Exception as e:
-        print("ERROR:", e)
+        print("SYSTEM ERROR:", e)
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/", methods=["GET"])
 def health_check():
     return "OK - Python Flask server running", 200
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
